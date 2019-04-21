@@ -35,6 +35,9 @@ namespace Piealytics
         {
             this.historyLength = historyLength;
             this.data.Resize(connectionProperties.Frequency * historyLength / 1000);
+            renderer.DataPoints = data.GetAllItems();
+            renderer.SetHistoryLength(historyLength);
+            renderer.InvalidateCanvas();
         }
 
         /// <summary>
@@ -50,7 +53,6 @@ namespace Piealytics
 
             // get number of values in this packet
             var numValues = bytes[1];
-            Console.WriteLine("Received " + numValues + " values");
 
             if ((numValues)*4 + 6 != bytes.Length)
             {

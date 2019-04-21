@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -16,22 +17,36 @@ namespace Piealytics
 
         // size of the canvas
         private Size componentSize;
+
+        // drawing properties
         private const float PADDING = 30.0f;
         private Color BACKGROUND_COLOR = Color.Black;
         private Pen DATA_COLOR = new Pen(Color.White, 2);
-        private Pen AXES_COLOR = new Pen(Color.DarkGray, 0.5f);
+        private Pen AXES_COLOR = new Pen(Color.DarkGray, 1.0f);
         private Brush AXES_LABEL_COLOR = Brushes.DarkGray;
+        private Font LABEL_FONT = new Font("Arial", 10);
+
+        // axes properties
+        private double stepY;
+        private double lowerBound;
+        private float rangeDiff;
+        private int decimalPlacesDiff;
+        private int stepX;
+        private int historyLength;
 
         // call when the chart should redrawn
         public Action InvalidateCanvas;
 
         // minimum and maximum of values to display
-        public Tuple<float, float> Range;
+        private Tuple<float, float> range;
 
         // list of data points
         public float[] DataPoints = new float[0];
 
-        // constructor
+        /// <summary>
+        /// Creates a data renderer. This class renders given data in this.DataPoints on a given control.
+        /// </summary>
+        /// <param name="destComponent">The control to draw on</param>
         public DataRenderer(Control destComponent)
         {
             
@@ -48,14 +63,57 @@ namespace Piealytics
         }
 
         /// <summary>
+        /// Sets the minimum and maximum value to display
+        /// </summary>
+        /// <param name="range">The range as a tuple</param>
+        public void SetRange(Tuple<float, float> range)
+        {
+            // set new range
+            this.range = range;
+
+            // calculate axis properties
+            CalcYAxesProperties();
+        }
+
+        /// <summary>
+        /// Sets the history length so the time labels are drawn properly
+        /// </summary>
+        /// <param name="historyLength"></param>
+        public void SetHistoryLength(int historyLength)
+        {
+            this.historyLength = historyLength;
+            int multiplicator10 = 1;
+            int multiplicatorV = 1;
+            stepX = 1;
+ 
+            // multiply by 5 and then by 2 alternating
+            do
+            {
+                stepX = multiplicator10 * multiplicatorV;
+                switch(multiplicatorV)
+                {
+                    case 1:
+                        multiplicatorV = 2;
+                        break;
+                    case 2:
+                        multiplicatorV = 5;
+                        break;
+                    case 5:
+                        multiplicatorV = 1;
+                        multiplicator10 *= 10;
+                        break;
+                }
+            } while (historyLength / stepX > 5);
+            Console.WriteLine(stepX);
+        }
+
+        /// <summary>
         /// The resize procedure. Saves the new canvas size and triggers a redraw.
         /// </summary>
         /// <param name="sender">The control object</param>
         /// <param name="e"></param>
         private void OnComponentResize(object sender, EventArgs e)
         {
-
-            if (Range == null) return;
 
             // cast to Control
             Control destComponent = (Control) sender;
@@ -68,41 +126,44 @@ namespace Piealytics
 
         }
 
+        /// <summary>
+        /// Draws the axes on a given graphics object
+        /// </summary>
+        /// <param name="g">The graphics object to draw on</param>
         private void DrawAxes(Graphics g)
         {
 
-            g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
+            // range must be set
+            if (range == null) return;
 
-            // calculate axis positioning
-            const int AXIS_AMOUNT = 10;
-            var rangeDiff = Range.Item2 - Range.Item1;
-            var decimalPlaces_diff = CalcDecimalPlace(rangeDiff);
-            var decimalMultiplicator = Math.Pow(10, -decimalPlaces_diff);
-
-            var unroundedStep = rangeDiff / AXIS_AMOUNT;
-            var stepsPerUnit = 1;
-            double step;
-            do
+            // iterate from the lowest value to the highest
+            for (double v = lowerBound; v <= range.Item2; v += stepY)
             {
-                step = Math.Round(unroundedStep * stepsPerUnit * decimalMultiplicator * 10.0) / stepsPerUnit / decimalMultiplicator / 10.0;
-                Console.WriteLine(step + " " + unroundedStep);
-                stepsPerUnit++;
-            } while (step == 0.0 || rangeDiff / step < AXIS_AMOUNT);
 
-            var lowerBound = Math.Floor(Range.Item1 / decimalMultiplicator) * decimalMultiplicator;
-            Console.WriteLine(lowerBound + " " + step);
-
-            for (double v = lowerBound; v <= Range.Item2; v += step)
-            {
-                if (v < Range.Item1) continue;
+                // ignore values lower than the minimum value
+                if (v < range.Item1)
+                {
+                    lowerBound = v;
+                    continue;
+                }
                 
                 // round to make values like 2.4999999999 to 2.5
-                var correctedV = Math.Round(v, Math.Max(-decimalPlaces_diff + 2, 0));
-                var y = componentSize.Height - PADDING - (float)((correctedV-Range.Item1) * (componentSize.Height-2*PADDING) / rangeDiff);
+                var correctedV = Math.Round(v, Math.Max(-decimalPlacesDiff + 2, 0));
+                var y = componentSize.Height - PADDING - (float)((correctedV-range.Item1) * (componentSize.Height-2*PADDING) / rangeDiff);
                 g.DrawLine(AXES_COLOR, 0, y, componentSize.Width, y);
-                g.DrawString(correctedV.ToString(), new Font("Arial", 10), AXES_LABEL_COLOR, 3, y + 3);
+                g.DrawString(correctedV.ToString(), LABEL_FONT, AXES_LABEL_COLOR, 3, y + 3);
                 
+            }
+
+            // iterate from 0ms to history length by stepX
+            float widthPerMs = (float)componentSize.Width / (float)historyLength;
+            for (int t = 0; t < historyLength; t += stepX)
+            {
+                var x = componentSize.Width - t * widthPerMs;
+                var label = -t + "ms";
+                g.DrawLine(AXES_COLOR, x, 0.0f, x, (float)componentSize.Height);
+                var labelSize = g.MeasureString(label, LABEL_FONT);
+                g.DrawString(label, LABEL_FONT, AXES_LABEL_COLOR, x - labelSize.Width - 3, componentSize.Height - labelSize.Height - 3);
             }
 
         }
@@ -114,6 +175,9 @@ namespace Piealytics
         /// <param name="e">Needed to access the Grapics object</param>
         private void Draw(object sender, PaintEventArgs e)
         {
+
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
 
             // clone list for thread safety
             float[] dataPoints = (float[])DataPoints.Clone();
@@ -128,8 +192,8 @@ namespace Piealytics
             if (dataPoints.Length == 0) return;
 
             // calculate scale
-            float widthPerDataPoint = (float)componentSize.Width / dataPoints.Length;
-            float heightPerValue = (componentSize.Height-PADDING*2) / (Range.Item2 - Range.Item1);
+            float widthPerDataPoint = (float)componentSize.Width / (dataPoints.Length-1);
+            float heightPerValue = (componentSize.Height-PADDING*2) / (range.Item2 - range.Item1);
 
             // add points
             for (int i = 1; i < dataPoints.Length; i++)
@@ -140,6 +204,9 @@ namespace Piealytics
             // draw axes
             DrawAxes(e.Graphics);
 
+            watch.Stop();
+            Console.WriteLine("Rendered in " + watch.ElapsedMilliseconds + "ms");
+
         }
 
         /// <summary>
@@ -149,9 +216,42 @@ namespace Piealytics
         /// <returns>The cropped value</returns>
         private float CropToRange(float v)
         {
-            return Range.Item2 - Math.Min(Math.Max(Range.Item1, v), Range.Item2);
+            return range.Item2 - Math.Min(Math.Max(range.Item1, v), range.Item2);
         }
 
+        /// <summary>
+        /// Calculates the axes properties given by this.range
+        /// </summary>
+        private void CalcYAxesProperties()
+        {
+
+            if (range == null) return;
+
+            // calculate axis positioning
+            const int AXIS_AMOUNT = 10;
+            rangeDiff = range.Item2 - range.Item1;
+            decimalPlacesDiff = CalcDecimalPlace(rangeDiff);
+            var decimalMultiplicator = Math.Pow(10, -decimalPlacesDiff);
+
+            var unroundedStep = rangeDiff / AXIS_AMOUNT;
+            var stepsPerUnit = 1;
+            do
+            {
+                stepY = Math.Round(unroundedStep * stepsPerUnit * decimalMultiplicator * 10.0) / stepsPerUnit / decimalMultiplicator / 10.0;
+                Console.WriteLine(stepY + " " + unroundedStep);
+                stepsPerUnit++;
+            } while (stepY == 0.0 || rangeDiff / stepY < AXIS_AMOUNT);
+
+            lowerBound = Math.Floor(range.Item1 / decimalMultiplicator) * decimalMultiplicator;
+            Console.WriteLine(lowerBound + " " + stepY);
+
+        }
+
+        /// <summary>
+        /// Function to calculate the decimal places a value has
+        /// </summary>
+        /// <param name="v">The float to calculate the decimal places of</param>
+        /// <returns>The decimal places</returns>
         private static int CalcDecimalPlace(float v)
         {
             if (v == 0.0f) return 0;

@@ -38,9 +38,11 @@ namespace Piealytics
             // search raspberry in local network and remember its IP
             var connectionProperties = await networkManager.SearchClientAsync();
             statusBar_statusLabel.Text = "Status: Verbunden mit " + connectionProperties.EndPoint.Address;
+            statusBar_frequency.Text = connectionProperties.Frequency + "Hz";
+            statusBar_range.Text = connectionProperties.Range.Item1 + " - " + connectionProperties.Range.Item2;
 
             // set connection properties on data manager and renderer
-            dataRenderer.Range = connectionProperties.Range;
+            dataRenderer.SetRange( connectionProperties.Range );
             dataManager.SetConnectionProperties(connectionProperties);
             dataManager.SetHistoryLength(Decimal.ToInt32(input_historyLength.Value));
 

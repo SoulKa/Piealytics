@@ -34,6 +34,9 @@
             this.statusBar = new System.Windows.Forms.StatusStrip();
             this.statusBar_statusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.input_historyLength = new System.Windows.Forms.NumericUpDown();
+            this.statusBar_frequency = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusBar_range = new System.Windows.Forms.ToolStripStatusLabel();
+            this.label_historyLength = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.chartFrame)).BeginInit();
             this.statusBar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.input_historyLength)).BeginInit();
@@ -44,10 +47,10 @@
             this.chartFrame.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.chartFrame.Location = new System.Drawing.Point(0, 84);
+            this.chartFrame.Location = new System.Drawing.Point(0, 42);
             this.chartFrame.Margin = new System.Windows.Forms.Padding(0);
             this.chartFrame.Name = "chartFrame";
-            this.chartFrame.Size = new System.Drawing.Size(783, 447);
+            this.chartFrame.Size = new System.Drawing.Size(783, 489);
             this.chartFrame.TabIndex = 0;
             this.chartFrame.TabStop = false;
             // 
@@ -61,7 +64,9 @@
             // 
             this.statusBar.ImageScalingSize = new System.Drawing.Size(20, 20);
             this.statusBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.statusBar_statusLabel});
+            this.statusBar_statusLabel,
+            this.statusBar_frequency,
+            this.statusBar_range});
             this.statusBar.Location = new System.Drawing.Point(0, 528);
             this.statusBar.Name = "statusBar";
             this.statusBar.Size = new System.Drawing.Size(782, 25);
@@ -76,7 +81,7 @@
             // 
             // input_historyLength
             // 
-            this.input_historyLength.Location = new System.Drawing.Point(12, 12);
+            this.input_historyLength.Location = new System.Drawing.Point(130, 7);
             this.input_historyLength.Maximum = new decimal(new int[] {
             10000,
             0,
@@ -88,7 +93,7 @@
             0,
             0});
             this.input_historyLength.Name = "input_historyLength";
-            this.input_historyLength.Size = new System.Drawing.Size(120, 22);
+            this.input_historyLength.Size = new System.Drawing.Size(80, 22);
             this.input_historyLength.TabIndex = 4;
             this.input_historyLength.Value = new decimal(new int[] {
             1000,
@@ -97,11 +102,31 @@
             0});
             this.input_historyLength.ValueChanged += new System.EventHandler(this.Input_historyLength_ValueChanged);
             // 
+            // statusBar_frequency
+            // 
+            this.statusBar_frequency.Name = "statusBar_frequency";
+            this.statusBar_frequency.Size = new System.Drawing.Size(0, 20);
+            // 
+            // statusBar_range
+            // 
+            this.statusBar_range.Name = "statusBar_range";
+            this.statusBar_range.Size = new System.Drawing.Size(0, 20);
+            // 
+            // label_historyLength
+            // 
+            this.label_historyLength.AutoSize = true;
+            this.label_historyLength.Location = new System.Drawing.Point(12, 9);
+            this.label_historyLength.Name = "label_historyLength";
+            this.label_historyLength.Size = new System.Drawing.Size(112, 17);
+            this.label_historyLength.TabIndex = 5;
+            this.label_historyLength.Text = "Zeitfenster (ms):";
+            // 
             // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(782, 553);
+            this.Controls.Add(this.label_historyLength);
             this.Controls.Add(this.input_historyLength);
             this.Controls.Add(this.chartFrame);
             this.Controls.Add(this.statusBar);
@@ -124,6 +149,9 @@
         private System.Windows.Forms.StatusStrip statusBar;
         private System.Windows.Forms.ToolStripStatusLabel statusBar_statusLabel;
         private System.Windows.Forms.NumericUpDown input_historyLength;
+        private System.Windows.Forms.ToolStripStatusLabel statusBar_frequency;
+        private System.Windows.Forms.ToolStripStatusLabel statusBar_range;
+        private System.Windows.Forms.Label label_historyLength;
     }
 }
 
