@@ -179,14 +179,15 @@ namespace Piealytics
             Stopwatch watch = new Stopwatch();
             watch.Start();
 
+            // draw axes
+            DrawAxes(e.Graphics);
+
             // clone list for thread safety
             float[] dataPoints = (float[])DataPoints.Clone();
 
             // clear screen
             e.Graphics.Clear(BACKGROUND_COLOR);
-            e.Graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-            e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.High;
-            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             // never divide by zero bruh
             if (dataPoints.Length == 0) return;
@@ -200,9 +201,6 @@ namespace Piealytics
             {
                 e.Graphics.DrawLine(DATA_COLOR, (i-1)*widthPerDataPoint, CropToRange(dataPoints[i - 1]) * heightPerValue + PADDING, i*widthPerDataPoint, CropToRange(dataPoints[i]) * heightPerValue + PADDING);
             }
-
-            // draw axes
-            DrawAxes(e.Graphics);
 
             watch.Stop();
             Console.WriteLine("Rendered in " + watch.ElapsedMilliseconds + "ms");
