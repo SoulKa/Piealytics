@@ -44,7 +44,7 @@ namespace Piealytics
             // set connection properties on data manager and renderer
             dataRenderer.SetRange( connectionProperties.Range );
             dataManager.SetConnectionProperties(connectionProperties);
-            dataManager.SetHistoryLength(Decimal.ToInt32(input_historyLength.Value));
+            dataManager.SetHistoryLength(decimal.ToInt32(input_historyLength.Value));
 
             // start listening for incoming data and assign the datamanager to it
             networkManager.StartListenerAsync(dataManager.HandleData);
@@ -52,7 +52,7 @@ namespace Piealytics
 
         private void Input_historyLength_ValueChanged(object sender, EventArgs e)
         {
-            dataManager.SetHistoryLength(Decimal.ToInt32(input_historyLength.Value));
+            dataManager.SetHistoryLength(decimal.ToInt32(input_historyLength.Value));
             dataRenderer.InvalidateCanvas();
         }
     }

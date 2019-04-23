@@ -14,8 +14,10 @@ namespace Piealytics
     class NetworkManager : IDisposable
     {
 
-        public enum PACKET_TYPES {
+        public enum MSG_TYPES {
+            DISCONNECT = 0,
             DATA = 1,
+            KEEPALIVE = 2,
             CONNECTION = 69
         };
         private readonly UdpClient udpSocket = null;
@@ -31,6 +33,7 @@ namespace Piealytics
         public NetworkManager(int port)
         {
             udpSocket = new UdpClient(port);
+            udpSocket.EnableBroadcast = true;
         }
 
         /// <summary>
@@ -49,11 +52,11 @@ namespace Piealytics
         /// <param name="interval">The interval to broadcast the message given in milliseconds</param>
         private async void SendPairingMessagesAsync(int interval = 1000)
         {
-            var bytes = Encoding.ASCII.GetBytes("PiealyticsReceiver");
+            byte[] bytes = { (byte) MSG_TYPES.CONNECTION };
             
             while (!Connected)
             {
-                udpSocket.Send(bytes, bytes.Length, "255.255.255.255", 15001);
+                udpSocket.Send(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 15000));
                 await Task.Delay(interval);
             }
         }
@@ -80,7 +83,7 @@ namespace Piealytics
             udpSocket.Connect(clientEndPoint);
             Connected = true;
 
-            Console.WriteLine("Connected to " + clientEndPoint + " with properties:" + connectionProperties);
+            Console.WriteLine("Connected to " + clientEndPoint + " with properties: " + connectionProperties);
             return connectionProperties;
         }
 

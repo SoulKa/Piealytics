@@ -31,7 +31,11 @@ namespace Piealytics
         {
             // get bytes from dgram and check if their size and content is valid
             var bytes = dgram.Buffer;
-            if (bytes.Length != 13 || bytes[0] != (byte) NetworkManager.PACKET_TYPES.CONNECTION) return null;
+            if (bytes.Length != 13 || bytes[0] != (byte) NetworkManager.MSG_TYPES.CONNECTION)
+            {
+                Console.WriteLine("Connection properties dgram was not 13 bytes but " + bytes.Length + " or type did not fit: " + bytes[0]);
+                return null;
+            }
 
             // get data from bytes
             int frequency = BitConverter.ToInt32(bytes, 1);

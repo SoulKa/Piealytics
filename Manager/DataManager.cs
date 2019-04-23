@@ -49,7 +49,7 @@ namespace Piealytics
         {
 
             // check if has correct size
-            if (bytes.Length < 6 || bytes[0] != (byte) NetworkManager.PACKET_TYPES.DATA) return;
+            if (bytes.Length < 6 || bytes[0] != (byte) NetworkManager.MSG_TYPES.DATA) return;
 
             // get number of values in this packet
             var numValues = bytes[1];
