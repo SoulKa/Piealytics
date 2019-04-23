@@ -127,14 +127,21 @@ namespace Piealytics
         }
 
         /// <summary>
-        /// Draws the axes on a given graphics object
+        /// Draws the axes on a new bitmap and returns it
         /// </summary>
-        /// <param name="g">The graphics object to draw on</param>
-        private void DrawAxes(Graphics g)
+        /// <param name="componentGraphics">The graphics object to get the resolution from</param>
+        /// <returns>The bitmap with the axes on</returns>
+        private Image DrawAxes(Graphics componentGraphics)
         {
+            Console.WriteLine(componentGraphics.ToString() + " " + componentSize);
+            // create bitmap to draw on
+            var bmp = new Bitmap(componentSize.Width, componentSize.Height, componentGraphics);
+            var g = Graphics.FromImage(bmp);
+            g.Clear(Color.Transparent);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             // range must be set
-            if (range == null) return;
+            if (range == null) return bmp;
 
             // iterate from the lowest value to the highest
             for (double v = lowerBound; v <= range.Item2; v += stepY)
@@ -166,6 +173,42 @@ namespace Piealytics
                 g.DrawString(label, LABEL_FONT, AXES_LABEL_COLOR, x - labelSize.Width - 3, componentSize.Height - labelSize.Height - 3);
             }
 
+            return bmp;
+
+        }
+
+        /// <summary>
+        /// Renderes the data on a new bitmap and returns it
+        /// </summary>
+        /// <param name="componentGraphics">The graphics object to get the resolution from</param>
+        /// <returns>The bitmap with the data on</returns>
+        private Image DrawData(Graphics componentGraphics)
+        {
+
+            // create bitmap to draw on
+            var bmp = new Bitmap(componentSize.Width, componentSize.Height, componentGraphics);
+            var g = Graphics.FromImage(bmp);
+            g.Clear(Color.Transparent);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            // clone list for thread safety
+            float[] dataPoints = (float[])DataPoints.Clone();
+
+            // never divide by zero bruh
+            if (dataPoints.Length == 0) return bmp;
+
+            // calculate scale
+            float widthPerDataPoint = (float)componentSize.Width / (dataPoints.Length - 1);
+            float heightPerValue = (componentSize.Height - PADDING * 2) / (range.Item2 - range.Item1);
+
+            // add points
+            for (int i = 1; i < dataPoints.Length; i++)
+            {
+                g.DrawLine(DATA_COLOR, (i - 1) * widthPerDataPoint, CropToRange(dataPoints[i - 1]) * heightPerValue + PADDING, i * widthPerDataPoint, CropToRange(dataPoints[i]) * heightPerValue + PADDING);
+            }
+
+            return bmp;
+
         }
 
         /// <summary>
@@ -173,34 +216,35 @@ namespace Piealytics
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e">Needed to access the Grapics object</param>
-        private void Draw(object sender, PaintEventArgs e)
+        private async void Draw(object sender, PaintEventArgs e)
         {
 
             Stopwatch watch = new Stopwatch();
             watch.Start();
-
+            /*
             // draw axes
-            DrawAxes(e.Graphics);
+            var axesTask = Task.Run(() =>
+            {
+                return DrawAxes(e.Graphics);
+            });
 
-            // clone list for thread safety
-            float[] dataPoints = (float[])DataPoints.Clone();
+            // draw data
+            var dataTask = Task.Run(() =>
+            {
+                return DrawData(e.Graphics);
+            });*/
+
+            // wait for rendering to finish
+            Image imgAxes = DrawAxes(e.Graphics);
+            Image imgData = DrawData(e.Graphics);
 
             // clear screen
             e.Graphics.Clear(BACKGROUND_COLOR);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            // never divide by zero bruh
-            if (dataPoints.Length == 0) return;
-
-            // calculate scale
-            float widthPerDataPoint = (float)componentSize.Width / (dataPoints.Length-1);
-            float heightPerValue = (componentSize.Height-PADDING*2) / (range.Item2 - range.Item1);
-
-            // add points
-            for (int i = 1; i < dataPoints.Length; i++)
-            {
-                e.Graphics.DrawLine(DATA_COLOR, (i-1)*widthPerDataPoint, CropToRange(dataPoints[i - 1]) * heightPerValue + PADDING, i*widthPerDataPoint, CropToRange(dataPoints[i]) * heightPerValue + PADDING);
-            }
+            // draw images
+            e.Graphics.DrawImage(imgAxes, 0, 0);
+            e.Graphics.DrawImage(imgData, 0, 0);
 
             watch.Stop();
             Console.WriteLine("Rendered in " + watch.ElapsedMilliseconds + "ms");
