@@ -20,8 +20,10 @@ namespace Piealytics
             KEEPALIVE = 2,
             CONNECTION = 69
         };
-        private readonly UdpClient udpSocket = null;
+
+        private readonly UdpClient udpSocket;
         private IPEndPoint clientEndPoint;
+        private Task keepAliveTask;
 
         public bool Running { get; private set; } = false;
         public bool Connected { get; private set; } = false;
@@ -33,7 +35,6 @@ namespace Piealytics
         public NetworkManager(int port)
         {
             udpSocket = new UdpClient(port);
-            udpSocket.EnableBroadcast = true;
         }
 
         /// <summary>
@@ -52,13 +53,15 @@ namespace Piealytics
         /// <param name="interval">The interval to broadcast the message given in milliseconds</param>
         private async void SendPairingMessagesAsync(int interval = 1000)
         {
+
             byte[] bytes = { (byte) MSG_TYPES.CONNECTION };
-            
+
             while (!Connected)
             {
                 udpSocket.Send(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 15000));
                 await Task.Delay(interval);
             }
+
         }
 
         /// <summary>
@@ -67,14 +70,17 @@ namespace Piealytics
         private async Task<ConnectionProperties> WaitForConnectionAsync()
         {
             Console.WriteLine("Waiting for pairing message");
+            udpSocket.EnableBroadcast = true;
+
             UdpReceiveResult dgram;
             ConnectionProperties connectionProperties;
             do
             {
                 dgram = await udpSocket.ReceiveAsync();
-                Console.WriteLine("Received dgram from " + dgram.RemoteEndPoint);
                 connectionProperties = ConnectionProperties.FromDgram(dgram);
             } while (connectionProperties == null);
+
+            udpSocket.EnableBroadcast = false;
 
             // save ip and port of raspberry
             clientEndPoint = dgram.RemoteEndPoint;
@@ -82,6 +88,16 @@ namespace Piealytics
             // connect to the remote endpoints
             udpSocket.Connect(clientEndPoint);
             Connected = true;
+
+            // start task to keep connection alive
+            keepAliveTask = Task.Run(async () =>
+            {
+                while (Running)
+                {
+                    await udpSocket.SendAsync(new byte[] { (byte) MSG_TYPES.KEEPALIVE }, 1, clientEndPoint);
+                    await Task.Delay(5000);
+                }
+            });
 
             Console.WriteLine("Connected to " + clientEndPoint + " with properties: " + connectionProperties);
             return connectionProperties;
@@ -120,6 +136,10 @@ namespace Piealytics
         /// </summary>
         public void Dispose()
         {
+
+            Connected = false;
+            keepAliveTask.Wait();
+
             if (udpSocket != null)
             {
                 udpSocket.Close();

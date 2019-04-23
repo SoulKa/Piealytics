@@ -68,11 +68,13 @@ namespace Piealytics
         /// <param name="range">The range as a tuple</param>
         public void SetRange(Tuple<float, float> range)
         {
+
             // set new range
             this.range = range;
 
             // calculate axis properties
             CalcYAxesProperties();
+
         }
 
         /// <summary>
@@ -81,6 +83,7 @@ namespace Piealytics
         /// <param name="historyLength"></param>
         public void SetHistoryLength(int historyLength)
         {
+
             this.historyLength = historyLength;
             int multiplicator10 = 1;
             int multiplicatorV = 1;
@@ -104,7 +107,7 @@ namespace Piealytics
                         break;
                 }
             } while (historyLength / stepX > 5);
-            Console.WriteLine(stepX);
+            
         }
 
         /// <summary>
@@ -133,7 +136,7 @@ namespace Piealytics
         /// <returns>The bitmap with the axes on</returns>
         private Image DrawAxes(Graphics componentGraphics)
         {
-            Console.WriteLine(componentGraphics.ToString() + " " + componentSize);
+            
             // create bitmap to draw on
             var bmp = new Bitmap(componentSize.Width, componentSize.Height, componentGraphics);
             var g = Graphics.FromImage(bmp);
@@ -280,12 +283,10 @@ namespace Piealytics
             do
             {
                 stepY = Math.Round(unroundedStep * stepsPerUnit * decimalMultiplicator * 10.0) / stepsPerUnit / decimalMultiplicator / 10.0;
-                Console.WriteLine(stepY + " " + unroundedStep);
                 stepsPerUnit++;
             } while (stepY == 0.0 || rangeDiff / stepY < AXIS_AMOUNT);
 
             lowerBound = Math.Floor(range.Item1 / decimalMultiplicator) * decimalMultiplicator;
-            Console.WriteLine(lowerBound + " " + stepY);
 
         }
 
