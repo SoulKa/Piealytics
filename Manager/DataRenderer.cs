@@ -18,6 +18,10 @@ namespace Piealytics
         // size of the canvas
         private Size componentSize;
 
+        // need two mutexes, so DrawData and DrawGrid can render parallel
+        private object resizeMutex1 = new object();
+        private object resizeMutex2 = new object();
+
         // drawing properties
         private const float PADDING = 30.0f;
         private Color BACKGROUND_COLOR = Color.Black;
@@ -25,6 +29,13 @@ namespace Piealytics
         private Pen AXES_COLOR = new Pen(Color.DarkGray, 1.0f);
         private Brush AXES_LABEL_COLOR = Brushes.DarkGray;
         private Font LABEL_FONT = new Font("Arial", 10);
+
+        // bitmaps
+        Image gridBitmap;
+        Image dataBitmap;
+        Graphics gridBitmapGraphics;
+        Graphics dataBitmapGraphics;
+        bool reallocateBitmaps = true;
 
         // axes properties
         private double stepY;
@@ -122,7 +133,16 @@ namespace Piealytics
             Control destComponent = (Control) sender;
 
             // set new size
-            componentSize = destComponent.Size;
+            lock (resizeMutex1)
+            {
+                lock (resizeMutex2)
+                {
+                    componentSize = destComponent.Size;
+                }
+            }
+
+            // set reallocate bool
+            reallocateBitmaps = true;
 
             // rerender
             InvalidateCanvas();
@@ -130,87 +150,83 @@ namespace Piealytics
         }
 
         /// <summary>
-        /// Draws the axes on a new bitmap and returns it
+        /// Draws the axes on a the bitmap
         /// </summary>
-        /// <param name="componentGraphics">The graphics object to get the resolution from</param>
-        /// <returns>The bitmap with the axes on</returns>
-        private Image DrawAxes(Graphics componentGraphics)
+        public void DrawGrid()
         {
-            
-            // create bitmap to draw on
-            var bmp = new Bitmap(componentSize.Width, componentSize.Height, componentGraphics);
-            var g = Graphics.FromImage(bmp);
-            g.Clear(Color.Transparent);
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            // range must be set
-            if (range == null) return bmp;
+            if (range == null || gridBitmap == null || gridBitmapGraphics == null) return;
 
-            // iterate from the lowest value to the highest
-            for (double v = lowerBound; v <= range.Item2; v += stepY)
+            lock (resizeMutex1)
             {
 
-                // ignore values lower than the minimum value
-                if (v < range.Item1)
+                // create bitmap to draw on
+                gridBitmapGraphics.Clear(Color.Transparent);
+
+                // iterate from the lowest value to the highest
+                for (double v = lowerBound; v <= range.Item2; v += stepY)
                 {
-                    lowerBound = v;
-                    continue;
+
+                    // ignore values lower than the minimum value
+                    if (v < range.Item1)
+                    {
+                        lowerBound = v;
+                        continue;
+                    }
+
+                    // round to make values like 2.4999999999 to 2.5
+                    var correctedV = Math.Round(v, Math.Max(-decimalPlacesDiff + 2, 0));
+                    var y = componentSize.Height - PADDING - (float)((correctedV - range.Item1) * (componentSize.Height - 2 * PADDING) / rangeDiff);
+                    gridBitmapGraphics.DrawLine(AXES_COLOR, 0, y, componentSize.Width, y);
+                    gridBitmapGraphics.DrawString(correctedV.ToString(), LABEL_FONT, AXES_LABEL_COLOR, 3, y + 3);
+
                 }
-                
-                // round to make values like 2.4999999999 to 2.5
-                var correctedV = Math.Round(v, Math.Max(-decimalPlacesDiff + 2, 0));
-                var y = componentSize.Height - PADDING - (float)((correctedV-range.Item1) * (componentSize.Height-2*PADDING) / rangeDiff);
-                g.DrawLine(AXES_COLOR, 0, y, componentSize.Width, y);
-                g.DrawString(correctedV.ToString(), LABEL_FONT, AXES_LABEL_COLOR, 3, y + 3);
-                
-            }
 
-            // iterate from 0ms to history length by stepX
-            float widthPerMs = (float)componentSize.Width / (float)historyLength;
-            for (int t = 0; t < historyLength; t += stepX)
-            {
-                var x = componentSize.Width - t * widthPerMs;
-                var label = -t + "ms";
-                g.DrawLine(AXES_COLOR, x, 0.0f, x, (float)componentSize.Height);
-                var labelSize = g.MeasureString(label, LABEL_FONT);
-                g.DrawString(label, LABEL_FONT, AXES_LABEL_COLOR, x - labelSize.Width - 3, componentSize.Height - labelSize.Height - 3);
-            }
+                // iterate from 0ms to history length by stepX
+                float widthPerMs = (float)componentSize.Width / (float)historyLength;
+                for (int t = 0; t < historyLength; t += stepX)
+                {
+                    var x = componentSize.Width - t * widthPerMs;
+                    var label = -t + "ms";
+                    gridBitmapGraphics.DrawLine(AXES_COLOR, x, 0.0f, x, (float)componentSize.Height);
+                    var labelSize = gridBitmapGraphics.MeasureString(label, LABEL_FONT);
+                    gridBitmapGraphics.DrawString(label, LABEL_FONT, AXES_LABEL_COLOR, x - labelSize.Width - 3, componentSize.Height - labelSize.Height - 3);
+                }
 
-            return bmp;
+            }
 
         }
 
         /// <summary>
         /// Renderes the data on a new bitmap and returns it
         /// </summary>
-        /// <param name="componentGraphics">The graphics object to get the resolution from</param>
         /// <returns>The bitmap with the data on</returns>
-        private Image DrawData(Graphics componentGraphics)
+        private void DrawData()
         {
 
-            // create bitmap to draw on
-            var bmp = new Bitmap(componentSize.Width, componentSize.Height, componentGraphics);
-            var g = Graphics.FromImage(bmp);
-            g.Clear(Color.Transparent);
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-            // clone list for thread safety
-            float[] dataPoints = (float[])DataPoints.Clone();
-
-            // never divide by zero bruh
-            if (dataPoints.Length == 0) return bmp;
-
-            // calculate scale
-            float widthPerDataPoint = (float)componentSize.Width / (dataPoints.Length - 1);
-            float heightPerValue = (componentSize.Height - PADDING * 2) / (range.Item2 - range.Item1);
-
-            // add points
-            for (int i = 1; i < dataPoints.Length; i++)
+            lock (resizeMutex2)
             {
-                g.DrawLine(DATA_COLOR, (i - 1) * widthPerDataPoint, CropToRange(dataPoints[i - 1]) * heightPerValue + PADDING, i * widthPerDataPoint, CropToRange(dataPoints[i]) * heightPerValue + PADDING);
-            }
 
-            return bmp;
+                // create bitmap to draw on
+                dataBitmapGraphics.Clear(Color.Transparent);
+
+                // clone list for thread safety
+                float[] dataPoints = (float[])DataPoints.Clone();
+
+                // never divide by zero bruh
+                if (dataPoints.Length == 0) return;
+
+                // calculate scale
+                float widthPerDataPoint = (float)componentSize.Width / (dataPoints.Length - 1);
+                float heightPerValue = (componentSize.Height - PADDING * 2) / (range.Item2 - range.Item1);
+
+                // add points
+                for (int i = 1; i < dataPoints.Length; i++)
+                {
+                    dataBitmapGraphics.DrawLine(DATA_COLOR, (i - 1) * widthPerDataPoint, CropToRange(dataPoints[i - 1]) * heightPerValue + PADDING, i * widthPerDataPoint, CropToRange(dataPoints[i]) * heightPerValue + PADDING);
+                }
+
+            }
 
         }
 
@@ -219,38 +235,55 @@ namespace Piealytics
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e">Needed to access the Grapics object</param>
-        private async void Draw(object sender, PaintEventArgs e)
+        private void Draw(object sender, PaintEventArgs e)
         {
 
             Stopwatch watch = new Stopwatch();
             watch.Start();
-            /*
-            // draw axes
-            var axesTask = Task.Run(() =>
-            {
-                return DrawAxes(e.Graphics);
-            });
 
-            // draw data
-            var dataTask = Task.Run(() =>
+            var drawingTasks = new List<Task>(2);
+            
+            // check if the the bitmaps must be (re)created because of resizing
+            if (reallocateBitmaps)
             {
-                return DrawData(e.Graphics);
-            });*/
+
+                // unset bool
+                reallocateBitmaps = false;
+
+                // free old bitmaps if present
+                if (gridBitmap != null) gridBitmap.Dispose();
+                if (dataBitmap != null) dataBitmap.Dispose();
+                if (gridBitmapGraphics != null) gridBitmapGraphics.Dispose();
+                if (dataBitmapGraphics != null) dataBitmapGraphics.Dispose();
+
+                // create new bitmaps
+                lock (resizeMutex1)
+                {
+                    gridBitmap = new Bitmap(componentSize.Width, componentSize.Height, e.Graphics);
+                    dataBitmap = new Bitmap(componentSize.Width, componentSize.Height, e.Graphics);
+                }
+                gridBitmapGraphics = Graphics.FromImage(gridBitmap);
+                dataBitmapGraphics = Graphics.FromImage(dataBitmap);
+                dataBitmapGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+                // only draw the grid if needed (after resize)
+                drawingTasks.Add( Task.Run( () => DrawGrid() ) );
+
+            }
 
             // wait for rendering to finish
-            Image imgAxes = DrawAxes(e.Graphics);
-            Image imgData = DrawData(e.Graphics);
+            drawingTasks.Add( Task.Run( () => DrawData() ) );
+            Task.WaitAll(drawingTasks.ToArray());
 
             // clear screen
             e.Graphics.Clear(BACKGROUND_COLOR);
-            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             // draw images
-            e.Graphics.DrawImage(imgAxes, 0, 0);
-            e.Graphics.DrawImage(imgData, 0, 0);
+            e.Graphics.DrawImage(gridBitmap, 0, 0);
+            e.Graphics.DrawImage(dataBitmap, 0, 0);
 
             watch.Stop();
-            Console.WriteLine("Rendered in " + watch.ElapsedMilliseconds + "ms");
+            //Console.WriteLine("Rendered in " + watch.ElapsedMilliseconds + "ms");
 
         }
 

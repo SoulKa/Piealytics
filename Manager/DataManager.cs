@@ -37,7 +37,6 @@ namespace Piealytics
             this.data.Resize(connectionProperties.Frequency * historyLength / 1000);
             renderer.DataPoints = data.GetAllItems();
             renderer.SetHistoryLength(historyLength);
-            renderer.InvalidateCanvas();
         }
 
         /// <summary>
@@ -67,7 +66,7 @@ namespace Piealytics
             for (int i = 0; i < numValues; i++)
             {
                 data.SetItem(BitConverter.ToSingle(bytes, i*4+6), startIndex+i);
-                Console.WriteLine("Received value: " + BitConverter.ToSingle(bytes, i * 4 + 6));
+                //Console.WriteLine("Received value: " + BitConverter.ToSingle(bytes, i * 4 + 6));
             }
 
             // set new data and rerender

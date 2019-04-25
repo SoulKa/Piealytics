@@ -35,11 +35,12 @@ namespace Piealytics
 
         private async void Run()
         {
+
             // search raspberry in local network and remember its IP
             var connectionProperties = await networkManager.SearchClientAsync();
             statusBar_statusLabel.Text = "Status: Verbunden mit " + connectionProperties.EndPoint.Address;
-            statusBar_frequency.Text = connectionProperties.Frequency + "Hz";
-            statusBar_range.Text = connectionProperties.Range.Item1 + " - " + connectionProperties.Range.Item2;
+            statusBar_frequency.Text = "Frequenz: " + connectionProperties.Frequency + "Hz";
+            statusBar_range.Text = "Wertebereich: " +  connectionProperties.Range.Item1 + " - " + connectionProperties.Range.Item2;
 
             // set connection properties on data manager and renderer
             dataRenderer.SetRange( connectionProperties.Range );
@@ -48,6 +49,11 @@ namespace Piealytics
 
             // start listening for incoming data and assign the datamanager to it
             networkManager.StartListenerAsync(dataManager.HandleData);
+
+            // render the axes
+            dataRenderer.DrawGrid();
+            dataRenderer.InvalidateCanvas();
+
         }
 
         private void Input_historyLength_ValueChanged(object sender, EventArgs e)

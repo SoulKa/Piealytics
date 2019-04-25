@@ -83,19 +83,19 @@ namespace Piealytics
             udpSocket.EnableBroadcast = false;
 
             // save ip and port of raspberry
-            clientEndPoint = dgram.RemoteEndPoint;
+            clientEndPoint = new IPEndPoint(dgram.RemoteEndPoint.Address, dgram.RemoteEndPoint.Port);
 
             // connect to the remote endpoints
             udpSocket.Connect(clientEndPoint);
             Connected = true;
 
             // start task to keep connection alive
-            keepAliveTask = Task.Run(async () =>
+            keepAliveTask = Task.Run(() =>
             {
-                while (Running)
+                while (Connected)
                 {
-                    await udpSocket.SendAsync(new byte[] { (byte) MSG_TYPES.KEEPALIVE }, 1, clientEndPoint);
-                    await Task.Delay(5000);
+                    udpSocket.Send(new byte[] { (byte) MSG_TYPES.KEEPALIVE }, 1);
+                    Task.Delay(5000).Wait();
                 }
             });
 
@@ -138,7 +138,7 @@ namespace Piealytics
         {
 
             Connected = false;
-            keepAliveTask.Wait();
+            if (keepAliveTask != null) keepAliveTask.Wait();
 
             if (udpSocket != null)
             {
